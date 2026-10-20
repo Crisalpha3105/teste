@@ -1,294 +1,77 @@
-import express from "express";
-import { neon } from "@neondatabase/serverless";
+import express from 'express';
+import { neon } from '@neondatabase/serverless';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-if (!process.env.DATABASE_URL) {
-  console.error("A variável DATABASE_URL não foi configurada.");
-  process.exit(1);
-}
-
+if (!process.env.DATABASE_URL) throw new Error('A variável DATABASE_URL não foi configurada.');
 const sql = neon(process.env.DATABASE_URL);
 
-app.use(express.json({ limit: "1mb" }));
-app.use(express.static("."));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.static('.'));
 
 async function prepararBanco() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS solicitacoes (
-      id TEXT PRIMARY KEY,
-      protocolo VARCHAR(30) UNIQUE NOT NULL,
-      cliente_id VARCHAR(100) NOT NULL,
-      cliente VARCHAR(150) NOT NULL,
-      fornecedor_id VARCHAR(100) NOT NULL,
-      fornecedor_nome VARCHAR(150) NOT NULL,
-      bloco VARCHAR(50) NOT NULL,
-      apartamento VARCHAR(30) NOT NULL,
-      prioridade VARCHAR(30) NOT NULL,
-      problema TEXT NOT NULL,
-      status VARCHAR(50) NOT NULL DEFAULT 'Pendente',
-      criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS retornos (
-      id BIGSERIAL PRIMARY KEY,
-      solicitacao_id TEXT NOT NULL,
-      prestador VARCHAR(150) NOT NULL,
-      resolvido BOOLEAN NOT NULL DEFAULT FALSE,
-      motivo TEXT,
-      observacao TEXT NOT NULL,
-      complemento TEXT,
-      criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      CONSTRAINT retornos_solicitacao_fk
-        FOREIGN KEY (solicitacao_id)
-        REFERENCES solicitacoes(id)
-        ON DELETE CASCADE
-    )
-  `;
-
-  console.log("Estrutura do banco verificada.");
+  await sql`CREATE TABLE IF NOT EXISTS solicitacoes (
+    id TEXT PRIMARY KEY, protocolo VARCHAR(40) UNIQUE NOT NULL,
+    cliente_id VARCHAR(100) NOT NULL, cliente VARCHAR(150) NOT NULL,
+    fornecedor_id VARCHAR(100) NOT NULL, fornecedor_nome VARCHAR(150) NOT NULL,
+    bloco VARCHAR(50) NOT NULL, apartamento VARCHAR(30) NOT NULL,
+    prioridade VARCHAR(30) NOT NULL, problema TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'Pendente',
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`;
+  await sql`CREATE TABLE IF NOT EXISTS retornos (
+    id BIGSERIAL PRIMARY KEY, solicitacao_id TEXT NOT NULL REFERENCES solicitacoes(id) ON DELETE CASCADE,
+    prestador VARCHAR(150) NOT NULL, resolvido BOOLEAN NOT NULL DEFAULT FALSE,
+    motivo TEXT, observacao TEXT NOT NULL, complemento TEXT,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`;
+  console.log('Estrutura do banco verificada.');
 }
 
-app.get("/api/saude", async (req, res) => {
+function campo(valor) { return typeof valor === 'string' ? valor.trim() : ''; }
+app.get('/api/saude', async (_req, res) => {
+  try { const r = await sql`SELECT NOW() AS agora`; res.json({ sucesso:true, banco:'conectado', agora:r[0].agora }); }
+  catch (erro) { console.error(erro); res.status(500).json({ sucesso:false, banco:'desconectado' }); }
+});
+
+app.get('/api/solicitacoes', async (req, res) => {
   try {
-    const resultado = await sql`SELECT NOW() AS agora`;
-
-    res.json({
-      sucesso: true,
-      banco: "conectado",
-      agora: resultado[0].agora
-    });
-  } catch (erro) {
-    console.error("Erro no teste do banco:", erro);
-
-    res.status(500).json({
-      sucesso: false,
-      banco: "desconectado"
-    });
-  }
+    const perfil = campo(req.query.perfil), usuarioId = campo(req.query.usuarioId);
+    if (!['cliente','fornecedor'].includes(perfil) || !usuarioId) return res.status(400).json({ erro:'Perfil e usuário são obrigatórios.' });
+    const registros = perfil === 'fornecedor'
+      ? await sql`SELECT s.*, COALESCE(json_agg(json_build_object('data',r.criado_em,'prestador',r.prestador,'resolvido',r.resolvido,'motivo',r.motivo,'observacao',r.observacao,'complemento',r.complemento) ORDER BY r.criado_em) FILTER (WHERE r.id IS NOT NULL),'[]'::json) retornos FROM solicitacoes s LEFT JOIN retornos r ON r.solicitacao_id=s.id WHERE s.fornecedor_id=${usuarioId} GROUP BY s.id ORDER BY s.criado_em DESC`
+      : await sql`SELECT s.*, COALESCE(json_agg(json_build_object('data',r.criado_em,'prestador',r.prestador,'resolvido',r.resolvido,'motivo',r.motivo,'observacao',r.observacao,'complemento',r.complemento) ORDER BY r.criado_em) FILTER (WHERE r.id IS NOT NULL),'[]'::json) retornos FROM solicitacoes s LEFT JOIN retornos r ON r.solicitacao_id=s.id WHERE s.cliente_id=${usuarioId} GROUP BY s.id ORDER BY s.criado_em DESC`;
+    res.json(registros.map(x => ({ id:x.id, protocolo:x.protocolo, clienteId:x.cliente_id, cliente:x.cliente, fornecedorId:x.fornecedor_id, fornecedorNome:x.fornecedor_nome, bloco:x.bloco, apto:x.apartamento, prioridade:x.prioridade, problema:x.problema, status:x.status, criado:x.criado_em, retornos:x.retornos || [] })));
+  } catch (erro) { console.error('Erro ao consultar:', erro); res.status(500).json({ erro:'Não foi possível consultar as solicitações.' }); }
 });
 
-app.get("/api/solicitacoes", async (req, res) => {
+app.post('/api/solicitacoes', async (req, res) => {
   try {
-    const { perfil, usuarioId } = req.query;
-
-    if (!perfil || !usuarioId) {
-      return res.status(400).json({
-        erro: "Perfil e usuário são obrigatórios."
-      });
-    }
-
-    let registros;
-
-    if (perfil === "fornecedor") {
-      registros = await sql`
-        SELECT
-          s.*,
-          COALESCE(
-            json_agg(
-              json_build_object(
-                'data', r.criado_em,
-                'prestador', r.prestador,
-                'resolvido', r.resolvido,
-                'motivo', r.motivo,
-                'observacao', r.observacao,
-                'complemento', r.complemento
-              )
-              ORDER BY r.criado_em
-            ) FILTER (WHERE r.id IS NOT NULL),
-            '[]'
-          ) AS retornos
-        FROM solicitacoes s
-        LEFT JOIN retornos r
-          ON r.solicitacao_id = s.id
-        WHERE s.fornecedor_id = ${usuarioId}
-        GROUP BY s.id
-        ORDER BY s.criado_em DESC
-      `;
-    } else {
-      registros = await sql`
-        SELECT
-          s.*,
-          COALESCE(
-            json_agg(
-              json_build_object(
-                'data', r.criado_em,
-                'prestador', r.prestador,
-                'resolvido', r.resolvido,
-                'motivo', r.motivo,
-                'observacao', r.observacao,
-                'complemento', r.complemento
-              )
-              ORDER BY r.criado_em
-            ) FILTER (WHERE r.id IS NOT NULL),
-            '[]'
-          ) AS retornos
-        FROM solicitacoes s
-        LEFT JOIN retornos r
-          ON r.solicitacao_id = s.id
-        WHERE s.cliente_id = ${usuarioId}
-        GROUP BY s.id
-        ORDER BY s.criado_em DESC
-      `;
-    }
-
-    const dados = registros.map(item => ({
-      id: item.id,
-      protocolo: item.protocolo,
-      clienteId: item.cliente_id,
-      cliente: item.cliente,
-      fornecedorId: item.fornecedor_id,
-      fornecedorNome: item.fornecedor_nome,
-      bloco: item.bloco,
-      apto: item.apartamento,
-      prioridade: item.prioridade,
-      problema: item.problema,
-      status: item.status,
-      criado: item.criado_em,
-      retornos: item.retornos
-    }));
-
-    res.json(dados);
-  } catch (erro) {
-    console.error("Erro ao consultar solicitações:", erro);
-
-    res.status(500).json({
-      erro: "Não foi possível consultar as solicitações."
-    });
-  }
+    const s = req.body || {};
+    const obrigatorios = ['id','protocolo','clienteId','cliente','fornecedorId','fornecedorNome','bloco','apto','prioridade','problema','status','criado'];
+    if (obrigatorios.some(k => !s[k])) return res.status(400).json({ erro:'Preencha todos os campos obrigatórios.' });
+    const r = await sql`INSERT INTO solicitacoes (id,protocolo,cliente_id,cliente,fornecedor_id,fornecedor_nome,bloco,apartamento,prioridade,problema,status,criado_em) VALUES (${s.id},${s.protocolo},${s.clienteId},${s.cliente},${s.fornecedorId},${s.fornecedorNome},${s.bloco},${s.apto},${s.prioridade},${s.problema},${s.status},${s.criado}) RETURNING id, protocolo`;
+    res.status(201).json(r[0]);
+  } catch (erro) { console.error('Erro ao cadastrar:', erro); res.status(500).json({ erro: erro?.code === '23505' ? 'Protocolo duplicado. Tente novamente.' : 'Não foi possível cadastrar a solicitação.' }); }
 });
 
-app.post("/api/solicitacoes", async (req, res) => {
+app.patch('/api/solicitacoes/:id/iniciar', async (req, res) => {
+  try { const r = await sql`UPDATE solicitacoes SET status='Em manutenção' WHERE id=${req.params.id} RETURNING id,status`; if (!r.length) return res.status(404).json({ erro:'Solicitação não encontrada.' }); res.json(r[0]); }
+  catch (erro) { console.error(erro); res.status(500).json({ erro:'Não foi possível iniciar o atendimento.' }); }
+});
+
+app.post('/api/solicitacoes/:id/retornos', async (req, res) => {
   try {
-    const solicitacao = req.body;
-
-    const resultado = await sql`
-      INSERT INTO solicitacoes (
-        id,
-        protocolo,
-        cliente_id,
-        cliente,
-        fornecedor_id,
-        fornecedor_nome,
-        bloco,
-        apartamento,
-        prioridade,
-        problema,
-        status,
-        criado_em
-      )
-      VALUES (
-        ${solicitacao.id},
-        ${solicitacao.protocolo},
-        ${solicitacao.clienteId},
-        ${solicitacao.cliente},
-        ${solicitacao.fornecedorId},
-        ${solicitacao.fornecedorNome},
-        ${solicitacao.bloco},
-        ${solicitacao.apto},
-        ${solicitacao.prioridade},
-        ${solicitacao.problema},
-        ${solicitacao.status},
-        ${solicitacao.criado}
-      )
-      RETURNING *
-    `;
-
-    res.status(201).json(resultado[0]);
-  } catch (erro) {
-    console.error("Erro ao cadastrar solicitação:", erro);
-
-    res.status(500).json({
-      erro: "Não foi possível cadastrar a solicitação."
-    });
-  }
+    const r = req.body || {};
+    if (!campo(r.prestador) || !campo(r.observacao) || typeof r.resolvido !== 'boolean') return res.status(400).json({ erro:'Preencha os dados obrigatórios do retorno.' });
+    const existe = await sql`SELECT id FROM solicitacoes WHERE id=${req.params.id}`;
+    if (!existe.length) return res.status(404).json({ erro:'Solicitação não encontrada.' });
+    await sql`INSERT INTO retornos (solicitacao_id,prestador,resolvido,motivo,observacao,complemento) VALUES (${req.params.id},${r.prestador},${r.resolvido},${r.motivo || null},${r.observacao},${r.complemento || null})`;
+    const status = r.resolvido ? 'Resolvido' : 'Pendente de retorno';
+    await sql`UPDATE solicitacoes SET status=${status} WHERE id=${req.params.id}`;
+    res.json({ sucesso:true, status });
+  } catch (erro) { console.error('Erro ao salvar retorno:', erro); res.status(500).json({ erro:'Não foi possível salvar o retorno.' }); }
 });
 
-app.patch("/api/solicitacoes/:id/iniciar", async (req, res) => {
-  try {
-    const resultado = await sql`
-      UPDATE solicitacoes
-      SET status = 'Em manutenção'
-      WHERE id = ${req.params.id}
-      RETURNING *
-    `;
-
-    if (!resultado.length) {
-      return res.status(404).json({
-        erro: "Solicitação não encontrada."
-      });
-    }
-
-    res.json(resultado[0]);
-  } catch (erro) {
-    console.error("Erro ao iniciar atendimento:", erro);
-
-    res.status(500).json({
-      erro: "Não foi possível iniciar o atendimento."
-    });
-  }
-});
-
-app.post("/api/solicitacoes/:id/retornos", async (req, res) => {
-  try {
-    const retorno = req.body;
-    const status = retorno.resolvido
-      ? "Resolvido"
-      : "Pendente de retorno";
-
-    await sql.transaction([
-      sql`
-        INSERT INTO retornos (
-          solicitacao_id,
-          prestador,
-          resolvido,
-          motivo,
-          observacao,
-          complemento
-        )
-        VALUES (
-          ${req.params.id},
-          ${retorno.prestador},
-          ${retorno.resolvido},
-          ${retorno.motivo || null},
-          ${retorno.observacao},
-          ${retorno.complemento || null}
-        )
-      `,
-      sql`
-        UPDATE solicitacoes
-        SET status = ${status}
-        WHERE id = ${req.params.id}
-      `
-    ]);
-
-    res.json({
-      sucesso: true,
-      status
-    });
-  } catch (erro) {
-    console.error("Erro ao salvar retorno:", erro);
-
-    res.status(500).json({
-      erro: "Não foi possível salvar o retorno."
-    });
-  }
-});
-
-app.use((req, res) => {
-  res.sendFile("index.html", { root: process.cwd() });
-});
-
-prepararBanco()
-  .then(() => {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Servidor iniciado na porta ${PORT}.`);
-    });
-  })
-  .catch(erro => {
-    console.error("Falha ao preparar o banco:", erro);
-    process.exit(1);
-  });
+app.use((req, res) => res.sendFile('index.html', { root:process.cwd() }));
+prepararBanco().then(() => app.listen(PORT, '0.0.0.0', () => console.log(`Servidor iniciado na porta ${PORT}.`))).catch(erro => { console.error('Falha ao preparar banco:', erro); process.exit(1); });
