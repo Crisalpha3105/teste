@@ -60,6 +60,24 @@ app.patch('/api/solicitacoes/:id/iniciar', async (req, res) => {
   catch (erro) { console.error(erro); res.status(500).json({ erro:'Não foi possível iniciar o atendimento.' }); }
 });
 
+app.delete('/api/solicitacoes/:id', async (req, res) => {
+  try {
+    const perfil = campo(req.body?.perfil);
+    const usuarioId = campo(req.body?.usuarioId);
+    if (perfil !== 'fornecedor' || !usuarioId) {
+      return res.status(403).json({ erro:'Somente o fornecedor responsável pode excluir solicitações.' });
+    }
+    const removidos = await sql`DELETE FROM solicitacoes WHERE id=${req.params.id} AND fornecedor_id=${usuarioId} RETURNING id, protocolo`;
+    if (!removidos.length) {
+      return res.status(404).json({ erro:'Solicitação não encontrada ou sem permissão para excluir.' });
+    }
+    res.json({ sucesso:true, id:removidos[0].id, protocolo:removidos[0].protocolo });
+  } catch (erro) {
+    console.error('Erro ao excluir solicitação:', erro);
+    res.status(500).json({ erro:'Não foi possível excluir a solicitação.' });
+  }
+});
+
 app.post('/api/solicitacoes/:id/retornos', async (req, res) => {
   try {
     const r = req.body || {};
