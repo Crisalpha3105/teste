@@ -23,16 +23,25 @@ function setCookie(res,token,idade=604800){res.setHeader('Set-Cookie',`${COOKIE}
 
 async function prepararBanco(){
   await sql`CREATE TABLE IF NOT EXISTS usuarios (
-    id BIGSERIAL PRIMARY KEY, nome VARCHAR(150) NOT NULL, email VARCHAR(200) UNIQUE NOT NULL,
-    senha_hash TEXT NOT NULL, perfil VARCHAR(20) NOT NULL CHECK (perfil IN ('admin','cliente','fornecedor')),
-    ativo BOOLEAN NOT NULL DEFAULT TRUE, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id SERIAL PRIMARY KEY, nome VARCHAR(150), email VARCHAR(200),
+    senha_hash TEXT, perfil VARCHAR(20), ativo BOOLEAN DEFAULT TRUE,
+    criado_em TIMESTAMPTZ DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nome VARCHAR(150)`;
+  await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email VARCHAR(200)`;
+  await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS senha_hash TEXT`;
+  await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS perfil VARCHAR(20)`;
+  await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE`;
+  await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS criado_em TIMESTAMPTZ DEFAULT NOW()`;
+  await sql`UPDATE usuarios SET ativo=TRUE WHERE ativo IS NULL`;
+  await sql`UPDATE usuarios SET criado_em=NOW() WHERE criado_em IS NULL`;
   await sql`CREATE SEQUENCE IF NOT EXISTS usuarios_id_seq`;
   await sql`ALTER SEQUENCE usuarios_id_seq OWNED BY usuarios.id`;
   await sql`ALTER TABLE usuarios ALTER COLUMN id SET DEFAULT nextval('usuarios_id_seq')`;
   await sql`SELECT setval('usuarios_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM usuarios),0)+1,1), false)`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS usuarios_email_unico ON usuarios (LOWER(email)) WHERE email IS NOT NULL`;
   await sql`CREATE TABLE IF NOT EXISTS sessoes (
-    token_hash TEXT PRIMARY KEY, usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    token_hash TEXT PRIMARY KEY, usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
     expira_em TIMESTAMPTZ NOT NULL, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
   await sql`CREATE TABLE IF NOT EXISTS solicitacoes (
