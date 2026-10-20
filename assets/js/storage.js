@@ -1,6 +1,6 @@
 'use strict';
 async function resposta(r){let c={};try{c=await r.json()}catch{}if(!r.ok)throw new Error(c.erro||`Erro HTTP ${r.status}`);return c}
-const api=(u,o={})=>resposta(fetch(u,{credentials:'same-origin',...o}));
+const api=async(u,o={})=>resposta(await fetch(u,{credentials:'same-origin',...o}));
 const json=(m,b)=>({method:m,headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
 const entrar=(email,senha)=>api('/api/auth/login',json('POST',{email,senha}));
 const consultarSessao=()=>api('/api/auth/sessao');
