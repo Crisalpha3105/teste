@@ -1,17 +1,14 @@
 {
-  "name": "sistema-interfones",
-  "version": "1.0.0",
-  "description": "Sistema compartilhado de manutenção de interfones",
+  "name": "sistema-interfones-royal-garden",
+  "version": "2.0.0",
+  "description": "Sistema de manutenção de interfones com autenticação por perfil",
   "main": "server.js",
   "type": "module",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "engines": {
-    "node": ">=20"
-  },
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=20" },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.0",
+    "bcryptjs": "^3.0.2",
     "express": "^5.1.0"
   }
 }
