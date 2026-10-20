@@ -52,3 +52,12 @@ async function salvarRetorno(id, retorno) {
     body: JSON.stringify(retorno)
   }));
 }
+
+async function excluirSolicitacao(id, perfil, usuarioId) {
+  return lerResposta(await fetch(`/api/solicitacoes/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ perfil, usuarioId })
+  }));
+}
+
