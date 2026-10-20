@@ -33,6 +33,15 @@ async function prepararBanco(){
   await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS perfil VARCHAR(20)`;
   await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE`;
   await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS criado_em TIMESTAMPTZ DEFAULT NOW()`;
+  await sql`DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='usuarios' AND column_name='senha'
+      ) THEN
+        ALTER TABLE usuarios ALTER COLUMN senha DROP NOT NULL;
+      END IF;
+    END $$`;
   await sql`UPDATE usuarios SET ativo=TRUE WHERE ativo IS NULL`;
   await sql`UPDATE usuarios SET criado_em=NOW() WHERE criado_em IS NULL`;
   await sql`CREATE SEQUENCE IF NOT EXISTS usuarios_id_seq`;
