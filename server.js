@@ -75,6 +75,15 @@ async function prepararBanco(){
     if(!emailValido(email)||senha.length<8)throw new Error('Configure ADMIN_EMAIL e ADMIN_PASSWORD com no mínimo 8 caracteres no Render.');
     await sql`INSERT INTO usuarios(nome,email,senha_hash,perfil) VALUES(${nome},${email},${await criarHash(senha)},'admin')`;
   }
+  const clientesAtivos = await sql`SELECT id,nome FROM usuarios WHERE perfil='cliente' AND ativo=TRUE ORDER BY criado_em`;
+  if (clientesAtivos.length === 1) {
+    const clienteId = String(clientesAtivos[0].id);
+    await sql`
+      UPDATE solicitacoes
+      SET cliente_id=${clienteId}, cliente=${clientesAtivos[0].nome}
+      WHERE cliente_id !~ '^[0-9]+$'
+    `;
+  }
   console.log('Banco preparado com sucesso.');
 }
 async function autenticar(req,res,next){try{const token=cookies(req)[COOKIE];if(!token)return res.status(401).json({erro:'Faça login para continuar.'});const r=await sql`SELECT u.id,u.nome,u.email,u.perfil,u.ativo FROM sessoes s JOIN usuarios u ON u.id=s.usuario_id WHERE s.token_hash=${tokenHash(token)} AND s.expira_em>NOW()`;if(!r.length||!r[0].ativo){setCookie(res,'',0);return res.status(401).json({erro:'Sessão inválida ou expirada.'});}req.usuario=r[0];next();}catch(e){console.error(e);res.status(500).json({erro:'Falha ao validar a sessão.'});}}
