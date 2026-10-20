@@ -278,7 +278,7 @@ app.post("/api/solicitacoes/:id/retornos", async (req, res) => {
   }
 });
 
-app.get("*", (req, res) => {
+app.use((req, res) => {
   res.sendFile("index.html", { root: process.cwd() });
 });
 
