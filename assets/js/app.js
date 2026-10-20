@@ -103,7 +103,7 @@ function tabela(itens, historico = false) {
     const r = x.retornos?.at(-1);
     const acao = historico || !fornecedor
       ? `<button class="btn secondary small" onclick="detalhes('${x.id}')">Detalhes</button>`
-      : `<button class="btn primary small" onclick="abrir('${x.id}')">Atualizar</button>${x.status === 'Pendente' ? `<button class="btn secondary small" onclick="iniciar('${x.id}')">Iniciar</button>` : ''}`;
+      : `<button class="btn primary small" onclick="abrir('${x.id}')">Atualizar</button>${x.status === 'Pendente' ? `<button class="btn secondary small" onclick="iniciar('${x.id}')">Iniciar</button>` : ''}<button class="btn danger small" onclick="excluir('${x.id}')">Excluir</button>`;
     return `<tr><td><b>${esc(x.protocolo)}</b></td><td>${esc(x.cliente)}<br><span class="muted">Bloco ${esc(x.bloco)} · Apto ${esc(x.apto)}</span></td><td>${esc(x.fornecedorNome || 'Fornecedor Principal')}</td><td>${data(x.criado)}</td><td>${badge(x.status)}</td><td>${esc(x.problema)}</td><td>${r ? esc(r.observacao) : '<span class="muted">Aguardando retorno</span>'}</td><td><div class="actions">${acao}</div></td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
@@ -124,6 +124,25 @@ function render() {
 }
 ['busca','status','fbloco'].forEach(id => $('#'+id).addEventListener(id === 'busca' ? 'input' : 'change', render));
 $('#limpar').onclick = () => { $('#busca').value=''; $('#status').value=''; $('#fbloco').value=''; render(); };
+
+window.excluir = async id => {
+  const solicitacao = dados.find(x => x.id === id);
+  if (!solicitacao || sessao.perfil !== 'fornecedor') return;
+
+  const confirmado = window.confirm(
+    `Deseja realmente excluir a solicitação ${solicitacao.protocolo}?\n\nEsta ação não poderá ser desfeita.`
+  );
+  if (!confirmado) return;
+
+  try {
+    await excluirSolicitacao(id, sessao.perfil, sessao.id);
+    await atualizarDados(false);
+    aviso(`Solicitação ${solicitacao.protocolo} excluída com sucesso.`);
+  } catch (erro) {
+    console.error('Falha ao excluir:', erro);
+    aviso(erro.message || 'Não foi possível excluir a solicitação.');
+  }
+};
 
 window.iniciar = async id => {
   try { await iniciarSolicitacao(id); await atualizarDados(false); aviso('Atendimento iniciado e salvo no banco.'); }
