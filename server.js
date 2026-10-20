@@ -34,9 +34,29 @@ async function prepararBanco() {
     senha_hash TEXT NOT NULL, perfil VARCHAR(20) NOT NULL CHECK (perfil IN ('admin','cliente','fornecedor')),
     ativo BOOLEAN NOT NULL DEFAULT TRUE, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
-  await sql`CREATE TABLE IF NOT EXISTS sessoes (
-    token_hash TEXT PRIMARY KEY, usuario_id TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-    expira_em TIMESTAMPTZ NOT NULL, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  await sql`CREATE TABLE IF NOT EXISTS usuarios (
+  id TEXT PRIMARY KEY,
+  nome VARCHAR(150) NOT NULL,
+  email VARCHAR(200) UNIQUE NOT NULL,
+  senha_hash TEXT NOT NULL,
+  perfil VARCHAR(20) NOT NULL CHECK (
+    perfil IN ('admin', 'cliente', 'fornecedor')
+  ),
+  ativo BOOLEAN NOT NULL DEFAULT TRUE,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)`;
+
+await sql`ALTER TABLE usuarios ALTER COLUMN id DROP DEFAULT`;
+await sql`ALTER TABLE usuarios ALTER COLUMN id TYPE TEXT USING id::TEXT`;
+
+await sql`CREATE TABLE IF NOT EXISTS sessoes (
+  token_hash TEXT PRIMARY KEY,
+  usuario_id TEXT NOT NULL
+    REFERENCES usuarios(id)
+    ON DELETE CASCADE,
+  expira_em TIMESTAMPTZ NOT NULL,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)`;)
   )`;
   await sql`CREATE TABLE IF NOT EXISTS solicitacoes (
     id TEXT PRIMARY KEY, protocolo VARCHAR(40) UNIQUE NOT NULL,
