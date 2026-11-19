@@ -52,7 +52,7 @@ function renderGerencial(){
   const atencao=abertos.filter(x=>x.diasParado>=8).sort((a,b)=>b.diasParado-a.diasParado);
   $('#totalAtencao').textContent=`${atencao.length} ${atencao.length===1?'pendência':'pendências'}`;
   $('#listaAtencao').innerHTML=atencao.length?`<div class="attention-list">${atencao.map(x=>`<article class="attention-item ${faixaFarol(x.diasParado)}"><div><b>Bloco ${esc(x.bloco)} · Apto ${esc(x.apto)}</b><span>${esc(x.protocolo)} · ${esc(x.status)}</span><small>${esc(x.problema)}</small><small>Última informação: ${data(ultimaMovimentacao(x))}</small></div><div class="days"><strong>${x.diasParado}</strong><span>dias sem informação</span>${['admin','fornecedor'].includes(sessao.perfil)?`<button class="btn primary small" onclick="abrirRetorno('${x.id}')">Atualizar</button>`:''}</div></article>`).join('')}</div>`:'<div class="empty-state">Nenhum atendimento exige atenção no momento.</div>';
-  $('#ultimaAtualizacao').textContent=`Atualizado em ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date())}`
+  $('#ultimaAtualizacao').textContent=`Atualizado em ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date())}`;renderReincidentes()
 }
 function render(){$('#total').textContent=dados.length;$('#pendentes').textContent=dados.filter(x=>x.status==='Pendente').length;$('#manutencao').textContent=dados.filter(x=>x.status==='Em manutenção').length;$('#retornos').textContent=dados.filter(x=>x.status==='Pendente de retorno').length;$('#resolvidos').textContent=dados.filter(x=>x.status==='Resolvido').length;$('#lista').innerHTML=tabela(filtrados());$('#hist').innerHTML=tabela(dados.filter(x=>x.status==='Resolvido'),true);renderGerencial()}
 $('#busca').oninput=$('#status').onchange=()=>$('#lista').innerHTML=tabela(filtrados());
@@ -93,3 +93,21 @@ $('#usuarioForm').onsubmit=async e=>{e.preventDefault();try{await criarUsuario({
 window.statusUsuario=async(id,ativo)=>{try{await alterarStatusUsuario(id,ativo);await carregarUsuarios()}catch(x){toast(x.message)}};
 window.novaSenha=async id=>{const s=prompt('Nova senha com no m\u00ednimo 8 caracteres:');if(!s)return;try{await alterarSenhaUsuario(id,s);toast('Senha alterada.')}catch(x){toast(x.message)}};
 inicio();setInterval(()=>{if(sessao)atualizar()},30000);
+
+function palavrasProblema(v){return new Set(textoBusca(v).split(/\s+/).filter(x=>x.length>3))}
+function problemasSemelhantes(a,b){const A=palavrasProblema(a),B=palavrasProblema(b);if(!A.size||!B.size)return false;let comum=0;A.forEach(x=>{if(B.has(x))comum++});return comum/Math.min(A.size,B.size)>=0.5}
+function renderReincidentes(){
+  const mapa=new Map();
+  dados.forEach(x=>{const chave=`${textoBusca(x.bloco)}|${textoBusca(x.apto)}`;if(chave==='|')return;const lista=mapa.get(chave)||[];lista.push(x);mapa.set(chave,lista)});
+  const limite90=Date.now()-90*86400000;
+  const grupos=[...mapa.values()].filter(lista=>lista.length>=2).map(lista=>{
+    lista.sort((a,b)=>new Date(b.criado)-new Date(a.criado));
+    return {lista,recentes:lista.filter(x=>new Date(x.criado).getTime()>=limite90).length}
+  }).sort((a,b)=>b.recentes-a.recentes||b.lista.length-a.lista.length||new Date(b.lista[0].criado)-new Date(a.lista[0].criado));
+  $('#totalReincidentes').textContent=`${grupos.length} ${grupos.length===1?'apartamento':'apartamentos'}`;
+  $('#listaReincidentes').innerHTML=grupos.length?`<div class="recurrence-list">${grupos.map(g=>{
+    const atual=g.lista[0],anteriores=g.lista.slice(1),semelhante=anteriores.some(x=>problemasSemelhantes(atual.problema,x.problema));
+    const orientacao=semelhante?'Comparar o reparo anterior, peça utilizada, prestador e possível garantia. O motivo atual é semelhante a uma ocorrência anterior.':'Comparar os diagnósticos para verificar se problemas diferentes podem ter uma causa comum, como cabeamento, fonte ou central.';
+    return `<details class="recurrence-item ${g.recentes>=2?'recente':''}"><summary><div><b>Bloco ${esc(atual.bloco)} · Apto ${esc(atual.apto)}</b><span>${g.lista.length} ocorrências no histórico · ${g.recentes} nos últimos 90 dias</span></div><span class="recurrence-badge">${semelhante?'Possível repetição':'Motivos diferentes'}</span></summary><div class="recurrence-detail"><h4>Nova ocorrência</h4><p><b>${esc(atual.protocolo)}</b> · ${data(atual.criado)} · <span class="badge ${classeStatus(atual.status)}">${esc(atual.status)}</span></p><p><b>Motivo informado:</b> ${esc(atual.problema)}</p><h4>Ocorrências anteriores</h4>${anteriores.map(x=>`<article><b>${esc(x.protocolo)}</b> · ${data(x.criado)} · ${esc(x.status)}<br><span>${esc(x.problema)}</span></article>`).join('')}<div class="recurrence-question"><b>Análise sugerida</b><span>${orientacao}</span></div><button class="btn secondary small" onclick="detalhes('${atual.id}')">Ver ocorrência atual</button></div></details>`
+  }).join('')}</div>`:'<div class="empty-state">Ainda não há apartamentos com duas ou mais ocorrências.</div>'
+}
