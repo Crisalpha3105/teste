@@ -1,0 +1,13 @@
+{
+  "name": "royal-garden-interfones",
+  "version": "3.0.0",
+  "description": "Sistema Royal Garden com login por perfil",
+  "type": "module",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.0",
+    "express": "^5.1.0"
+  }
+}
