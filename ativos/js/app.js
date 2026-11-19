@@ -33,30 +33,48 @@ function baixarCSV(nome,linhas){const blob=new Blob(['\ufeff'+linhas.map(l=>l.ma
 window.exportarCSV=()=>{const lista=filtrados(),cab=['Protocolo','Cliente','Bloco','Apartamento','Fornecedor','Status','Problema','Observa\u00e7\u00e3o','Data de abertura'];baixarCSV(`atendimentos_${new Date().toISOString().slice(0,10)}.csv`,[cab,...lista.map(x=>{const r=x.retornos?.at(-1);return[x.protocolo,x.cliente,x.bloco,x.apto,x.fornecedorNome,x.status,x.problema,r?.observacao||'',new Date(x.criado).toLocaleString('pt-BR')]})]);toast(`${lista.length} registros exportados`)};
 window.exportarRankings=()=>{const apt=agrupar(dados,x=>`${x.cliente||'Cliente n\u00e3o informado'} \u00b7 Bloco ${x.bloco||'-'} \u00b7 Apto ${x.apto||'-'}`),prob=agrupar(dados,x=>String(x.problema||'').trim().replace(/\s+/g,' '));baixarCSV(`rankings_${new Date().toISOString().slice(0,10)}.csv`,[['RANKING DE APARTAMENTOS'],['Posi\u00e7\u00e3o','Apartamento','Ocorr\u00eancias','Pendentes','Resolvidos'],...apt.map((x,i)=>[i+1,x.rotulo,x.total,x.pendentes,x.resolvidos]),[],['PRINCIPAIS PROBLEMAS'],['Posi\u00e7\u00e3o','Problema','Ocorr\u00eancias'],...prob.map((x,i)=>[i+1,x.rotulo,x.total])])};
 window.imprimirRelatorio=()=>window.print();
-function ultimaMovimentacao(x){
+function dataMovimento(x){
   const retornos=Array.isArray(x.retornos)?x.retornos:[];
-  const ultimo=retornos.length?retornos[retornos.length-1]:null;
-  const valor=ultimo?.data||x.criado;
+  const ultimo=retornos.at(-1)||{};
+  const valor=ultimo.criado||ultimo.data||ultimo.dataHora||ultimo.updatedAt||x.atualizado||x.updatedAt||x.criado||x.createdAt;
   const d=new Date(valor);return Number.isNaN(d.getTime())?new Date():d
 }
-function diasSemInformacao(x){return Math.max(0,Math.floor((Date.now()-ultimaMovimentacao(x).getTime())/86400000))}
-function faixaFarol(dias){return dias>=30?'escalonado':dias>=15?'critico':dias>=8?'atencao':'prazo'}
+function diasSemMovimento(x){return Math.max(0,Math.floor((Date.now()-dataMovimento(x).getTime())/86400000))}
+function faixaSla(dias){return dias>=15?'critico':dias>=8?'atencao':'prazo'}
 function renderGerencial(){
-  const abertos=dados.filter(x=>!['Resolvido','Cancelado'].includes(x.status)).map(x=>({...x,diasParado:diasSemInformacao(x)}));
-  const status=['Pendente','Em manutenção','Pendente de retorno','Resolvido'];
-  const cores=['#d59b09','#16897f','#e36b18','#23944b'];
+  const abertos=dados.filter(x=>x.status!=='Resolvido'&&x.status!=='Cancelado').map(x=>({...x,diasParado:diasSemMovimento(x)}));
+  const status=['Pendente','Em manuten\u00e7\u00e3o','Pendente de retorno','Resolvido'];
+  const cores=['#d97706','#2563eb','#ea580c','#16a34a'];
   const totais=status.map(s=>dados.filter(x=>x.status===s).length),max=Math.max(1,...totais);
   $('#graficoStatus').innerHTML=status.map((s,i)=>`<div class="chart-row"><span>${esc(s)}</span><div class="chart-track"><i style="width:${totais[i]/max*100}%;background:${cores[i]}"></i></div><b>${totais[i]}</b></div>`).join('');
-  const grupos=[['prazo','Dentro do prazo','0 a 7 dias'],['atencao','Atenção','8 a 14 dias'],['critico','Crítico','15 a 29 dias'],['escalonado','Escalonar','30 dias ou mais']];
-  $('#farol').innerHTML=grupos.map(([c,t,p])=>`<article class="traffic-item ${c}"><span class="traffic-dot"></span><div><b>${t}</b><small>${p} sem informação</small></div><strong>${abertos.filter(x=>faixaFarol(x.diasParado)===c).length}</strong></article>`).join('');
+  const grupos=[['prazo','Dentro do prazo','0 a 7 dias'],['atencao','Aten\u00e7\u00e3o','8 a 14 dias'],['critico','Cr\u00edtico','15 dias ou mais']];
+  $('#farol').innerHTML=grupos.map(([c,t,p])=>{const n=abertos.filter(x=>faixaSla(x.diasParado)===c).length;return `<article class="traffic-item ${c}"><span class="traffic-dot"></span><div><b>${t}</b><small>${p} sem informa\u00e7\u00e3o</small></div><strong>${n}</strong></article>`}).join('');
   const atencao=abertos.filter(x=>x.diasParado>=8).sort((a,b)=>b.diasParado-a.diasParado);
-  $('#totalAtencao').textContent=`${atencao.length} ${atencao.length===1?'pendência':'pendências'}`;
-  $('#listaAtencao').innerHTML=atencao.length?`<div class="attention-list">${atencao.map(x=>`<article class="attention-item ${faixaFarol(x.diasParado)}"><div><b>Bloco ${esc(x.bloco)} · Apto ${esc(x.apto)}</b><span>${esc(x.protocolo)} · ${esc(x.status)}</span><small>${esc(x.problema)}</small><small>Última informação: ${data(ultimaMovimentacao(x))}</small></div><div class="days"><strong>${x.diasParado}</strong><span>dias sem informação</span>${['admin','fornecedor'].includes(sessao.perfil)?`<button class="btn primary small" onclick="abrirRetorno('${x.id}')">Atualizar</button>`:''}</div></article>`).join('')}</div>`:'<div class="empty-state">Nenhum atendimento exige atenção no momento.</div>';
-  $('#ultimaAtualizacao').textContent=`Atualizado em ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date())}`;renderReincidentes()
+  $('#totalAtencao').textContent=`${atencao.length} ${atencao.length===1?'pend\u00eancia':'pend\u00eancias'}`;
+  $('#listaAtencao').innerHTML=atencao.length?`<div class="attention-list">${atencao.map(x=>`<article class="attention-item ${faixaSla(x.diasParado)}"><div><b>Bloco ${esc(x.bloco)} \u00b7 Apto ${esc(x.apto)}</b><span>${esc(x.protocolo)} \u00b7 ${esc(x.status)}</span><small>${esc(x.problema)}</small></div><div class="days"><strong>${x.diasParado}</strong><span>dias sem atualiza\u00e7\u00e3o</span>${['admin','fornecedor'].includes(sessao.perfil)?`<button class="btn primary small" onclick="abrirRetorno('${x.id}')">Atualizar</button>`:''}</div></article>`).join('')}</div>`:'<div class="empty-state">Nenhum atendimento exige aten\u00e7\u00e3o no momento.</div>';
+  $('#ultimaAtualizacao').textContent=`Atualizado em ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date())}`;
+  renderReincidentes();renderAnaliticos()
 }
-function render(){$('#total').textContent=dados.length;$('#pendentes').textContent=dados.filter(x=>x.status==='Pendente').length;$('#manutencao').textContent=dados.filter(x=>x.status==='Em manutenção').length;$('#retornos').textContent=dados.filter(x=>x.status==='Pendente de retorno').length;$('#resolvidos').textContent=dados.filter(x=>x.status==='Resolvido').length;$('#lista').innerHTML=tabela(filtrados());$('#hist').innerHTML=tabela(dados.filter(x=>x.status==='Resolvido'),true);renderGerencial()}
+function chaveApartamento(x){return `${String(x.bloco||'').trim().toLowerCase()}|${String(x.apto||'').trim().toLowerCase()}`}
+function renderReincidentes(){
+  const mapa=new Map();
+  dados.forEach(x=>{const chave=chaveApartamento(x);if(chave==='|')return;const lista=mapa.get(chave)||[];lista.push(x);mapa.set(chave,lista)});
+  const agora=Date.now(),janela=90*86400000;
+  const grupos=[...mapa.values()].filter(lista=>lista.length>=2).map(lista=>{
+    lista.sort((a,b)=>new Date(b.criado||b.createdAt)-new Date(a.criado||a.createdAt));
+    const recentes=lista.filter(x=>agora-new Date(x.criado||x.createdAt).getTime()<=janela).length;
+    return {lista,recentes,ultima:new Date(lista[0].criado||lista[0].createdAt).getTime()}
+  }).sort((a,b)=>b.recentes-a.recentes||b.lista.length-a.lista.length||b.ultima-a.ultima);
+  $('#totalReincidentes').textContent=`${grupos.length} ${grupos.length===1?'apartamento':'apartamentos'}`;
+  $('#listaReincidentes').innerHTML=grupos.length?`<div class="recurrence-list">${grupos.map(g=>{
+    const atual=g.lista[0],anteriores=g.lista.slice(1),mesmoMotivo=anteriores.some(x=>textoBusca(x.problema)===textoBusca(atual.problema));
+    const alerta=g.recentes>=2?'recente':'historico';
+    return `<details class="recurrence-item ${alerta}"><summary><div><b>Bloco ${esc(atual.bloco)} · Apto ${esc(atual.apto)}</b><span>${g.lista.length} ocorrências no histórico · ${g.recentes} nos últimos 90 dias</span></div><span class="recurrence-badge">${mesmoMotivo?'Possível repetição do problema':'Motivos diferentes'}</span></summary><div class="recurrence-detail"><h4>Ocorrência mais recente</h4><p><b>${esc(atual.protocolo)}</b> · ${data(atual.criado||atual.createdAt)} · <span class="badge ${classeStatus(atual.status)}">${esc(atual.status)}</span></p><p><b>Motivo:</b> ${esc(atual.problema)}</p><h4>Ocorrências anteriores</h4>${anteriores.map(x=>`<article><b>${esc(x.protocolo)}</b> · ${data(x.criado||x.createdAt)} · ${esc(x.status)}<br><span>${esc(x.problema)}</span></article>`).join('')}<div class="recurrence-question"><b>Verificação sugerida</b><span>${mesmoMotivo?'Comparar o serviço anterior, peça utilizada, prestador e prazo de garantia antes de encerrar a nova ocorrência.':'Confirmar se os problemas têm a mesma causa técnica, como cabeamento, fonte, aparelho ou instalação da unidade.'}</span></div><button class="btn secondary small" onclick="detalhes('${atual.id}')">Ver ocorrência atual</button></div></details>`
+  }).join('')}</div>`:'<div class="empty-state">Ainda não há apartamentos com duas ou mais ocorrências.</div>'
+}
+function render(){$('#total').textContent=dados.length;$('#pendentes').textContent=dados.filter(x=>x.status==='Pendente').length;$('#manutencao').textContent=dados.filter(x=>x.status==='Em manuten\u00e7\u00e3o').length;$('#resolvidos').textContent=dados.filter(x=>x.status==='Resolvido').length;$('#lista').innerHTML=tabela(filtrados());$('#hist').innerHTML=tabela(dados.filter(x=>x.status==='Resolvido'),true);renderGerencial()}
 $('#busca').oninput=$('#status').onchange=()=>$('#lista').innerHTML=tabela(filtrados());
-$('#solicitacaoForm').onsubmit=async e=>{e.preventDefault();try{await salvarSolicitacao({protocolo:`${new Date().getFullYear()}-${Date.now().toString().slice(-9)}`,bloco:$('#bloco').value.trim(),apto:$('#apto').value.trim(),prioridade:$('#prioridade').value,problema:$('#problema').value.trim()});e.target.reset();await atualizar();pagina('solicitacoes');toast('Solicita\u00e7\u00e3o cadastrada.')}catch(x){toast(x.message)}};
+$('#solicitacaoForm').onsubmit=async e=>{e.preventDefault();try{await salvarSolicitacao({protocolo:`${new Date().getFullYear()}-${Date.now().toString().slice(-9)}`,bloco:$('#bloco').value,apto:$('#apto').value.trim(),prioridade:$('#prioridade').value,categoriaProblema:$('#categoriaProblema').value,problema:$('#problema').value.trim(),tipoOcorrencia:$('#tipoOcorrencia').value,ocorrenciaAnteriorId:$('#ocorrenciaAnterior').value||null});e.target.reset();await atualizar();pagina('solicitacoes');toast('Solicita\u00e7\u00e3o cadastrada.')}catch(x){toast(x.message)}};
 window.iniciarAtendimento=async id=>{try{await iniciarSolicitacao(id);await atualizar();toast('Atendimento iniciado.')}catch(x){toast(x.message)}};
 window.excluir=async id=>{if(!confirm('Deseja excluir definitivamente esta solicita\u00e7\u00e3o?'))return;try{await excluirSolicitacao(id);await atualizar();toast('Solicita\u00e7\u00e3o exclu\u00edda.')}catch(x){toast(x.message)}};
 function obterDataResolucao(x){
@@ -87,27 +105,42 @@ window.detalhes=id=>{
 };
 window.abrirRetorno=id=>{const x=dados.find(d=>d.id===id);$('#edit').value=id;$('#prestador').value=sessao.nome;$('#modal').classList.add('open')};
 $('#fechar').onclick=()=>$('#modal').classList.remove('open');
-$('#retornoForm').onsubmit=async e=>{e.preventDefault();const ok=$('#resolvido').value==='sim';try{await salvarRetorno($('#edit').value,{prestador:$('#prestador').value.trim(),resolvido:ok,motivo:ok?'':$('#motivo').value,observacao:$('#observacao').value.trim(),complemento:$('#complemento').value.trim()});e.target.reset();$('#modal').classList.remove('open');await atualizar();toast('Retorno salvo.')}catch(x){toast(x.message)}};
+$('#retornoForm').onsubmit=async e=>{e.preventDefault();const ok=$('#resolvido').value==='sim';try{await salvarRetorno($('#edit').value,{prestador:$('#prestador').value.trim(),resolvido:ok,motivo:ok?'':$('#motivo').value,motivoParalisacao:ok?'':$('#motivo').value,observacao:$('#observacao').value.trim(),complemento:$('#complemento').value.trim()});e.target.reset();$('#modal').classList.remove('open');await atualizar();toast('Retorno salvo.')}catch(x){toast(x.message)}};
 async function carregarUsuarios(){if(sessao.perfil!=='admin')return;try{const u=await listarUsuarios();$('#listaUsuarios').innerHTML=`<div class="table"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>A&#231;&#245;es</th></tr></thead><tbody>${u.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.email)}</td><td>${esc(x.perfil)}</td><td>${x.ativo?'Ativo':'Inativo'}</td><td><button class="btn secondary small" onclick="statusUsuario('${x.id}',${!x.ativo})">${x.ativo?'Desativar':'Ativar'}</button> <button class="btn primary small" onclick="novaSenha('${x.id}')">Nova senha</button></td></tr>`).join('')}</tbody></table></div>`}catch(x){toast(x.message)}}
 $('#usuarioForm').onsubmit=async e=>{e.preventDefault();try{await criarUsuario({nome:$('#uNome').value.trim(),email:$('#uEmail').value.trim(),perfil:$('#uPerfil').value,senha:$('#uSenha').value});e.target.reset();await carregarUsuarios();toast('Usu\u00e1rio criado.')}catch(x){toast(x.message)}};
 window.statusUsuario=async(id,ativo)=>{try{await alterarStatusUsuario(id,ativo);await carregarUsuarios()}catch(x){toast(x.message)}};
 window.novaSenha=async id=>{const s=prompt('Nova senha com no m\u00ednimo 8 caracteres:');if(!s)return;try{await alterarSenhaUsuario(id,s);toast('Senha alterada.')}catch(x){toast(x.message)}};
 inicio();setInterval(()=>{if(sessao)atualizar()},30000);
 
-function palavrasProblema(v){return new Set(textoBusca(v).split(/\s+/).filter(x=>x.length>3))}
-function problemasSemelhantes(a,b){const A=palavrasProblema(a),B=palavrasProblema(b);if(!A.size||!B.size)return false;let comum=0;A.forEach(x=>{if(B.has(x))comum++});return comum/Math.min(A.size,B.size)>=0.5}
-function renderReincidentes(){
-  const mapa=new Map();
-  dados.forEach(x=>{const chave=`${textoBusca(x.bloco)}|${textoBusca(x.apto)}`;if(chave==='|')return;const lista=mapa.get(chave)||[];lista.push(x);mapa.set(chave,lista)});
-  const limite90=Date.now()-90*86400000;
-  const grupos=[...mapa.values()].filter(lista=>lista.length>=2).map(lista=>{
-    lista.sort((a,b)=>new Date(b.criado)-new Date(a.criado));
-    return {lista,recentes:lista.filter(x=>new Date(x.criado).getTime()>=limite90).length}
-  }).sort((a,b)=>b.recentes-a.recentes||b.lista.length-a.lista.length||new Date(b.lista[0].criado)-new Date(a.lista[0].criado));
-  $('#totalReincidentes').textContent=`${grupos.length} ${grupos.length===1?'apartamento':'apartamentos'}`;
-  $('#listaReincidentes').innerHTML=grupos.length?`<div class="recurrence-list">${grupos.map(g=>{
-    const atual=g.lista[0],anteriores=g.lista.slice(1),semelhante=anteriores.some(x=>problemasSemelhantes(atual.problema,x.problema));
-    const orientacao=semelhante?'Comparar o reparo anterior, peça utilizada, prestador e possível garantia. O motivo atual é semelhante a uma ocorrência anterior.':'Comparar os diagnósticos para verificar se problemas diferentes podem ter uma causa comum, como cabeamento, fonte ou central.';
-    return `<details class="recurrence-item ${g.recentes>=2?'recente':''}"><summary><div><b>Bloco ${esc(atual.bloco)} · Apto ${esc(atual.apto)}</b><span>${g.lista.length} ocorrências no histórico · ${g.recentes} nos últimos 90 dias</span></div><span class="recurrence-badge">${semelhante?'Possível repetição':'Motivos diferentes'}</span></summary><div class="recurrence-detail"><h4>Nova ocorrência</h4><p><b>${esc(atual.protocolo)}</b> · ${data(atual.criado)} · <span class="badge ${classeStatus(atual.status)}">${esc(atual.status)}</span></p><p><b>Motivo informado:</b> ${esc(atual.problema)}</p><h4>Ocorrências anteriores</h4>${anteriores.map(x=>`<article><b>${esc(x.protocolo)}</b> · ${data(x.criado)} · ${esc(x.status)}<br><span>${esc(x.problema)}</span></article>`).join('')}<div class="recurrence-question"><b>Análise sugerida</b><span>${orientacao}</span></div><button class="btn secondary small" onclick="detalhes('${atual.id}')">Ver ocorrência atual</button></div></details>`
-  }).join('')}</div>`:'<div class="empty-state">Ainda não há apartamentos com duas ou mais ocorrências.</div>'
+
+function horasEntre(a,b){const x=new Date(a).getTime(),y=new Date(b).getTime();return Number.isFinite(x)&&Number.isFinite(y)?Math.max(0,(y-x)/36e5):null}
+function classeSla(dias,limiteAmarelo,limiteVermelho){return dias>=limiteVermelho?'critico':dias>=limiteAmarelo?'atencao':'prazo'}
+function renderAnaliticos(){
+  const concluidos=dados.filter(x=>x.status==='Resolvido'&&x.retornos?.some(r=>r.resolvido));
+  const inicio=dados.map(x=>{const primeiro=x.retornos?.[0];return primeiro?horasEntre(x.criado,primeiro.data)/24:null}).filter(Number.isFinite);
+  const resolucao=concluidos.map(x=>{const fim=[...x.retornos].reverse().find(r=>r.resolvido);return fim?horasEntre(x.criado,fim.data)/24:null}).filter(Number.isFinite);
+  const abertos=dados.filter(x=>!['Resolvido','Cancelado'].includes(x.status));
+  const semAtual=abertos.map(diasSemMovimento);
+  const media=a=>a.length?a.reduce((s,n)=>s+n,0)/a.length:0;
+  const dentroInicio=inicio.filter(n=>n<=2).length, dentroResol=resolucao.filter(n=>n<=7).length;
+  $('#slaCompleto').innerHTML=[
+    ['Início do atendimento',media(inicio),'dias',inicio.length?dentroInicio/inicio.length*100:0,'Meta: até 2 dias',classeSla(media(inicio),3,5)],
+    ['Resolução',media(resolucao),'dias',resolucao.length?dentroResol/resolucao.length*100:0,'Meta: até 7 dias',classeSla(media(resolucao),8,15)],
+    ['Sem atualização',media(semAtual),'dias',abertos.length?semAtual.filter(n=>n<=7).length/abertos.length*100:0,'Meta: até 7 dias',classeSla(media(semAtual),8,15)]
+  ].map(([t,v,u,pct,meta,c])=>`<article class="sla-card ${c}"><span>${t}</span><b>${v.toFixed(1)} ${u}</b><small>${meta}</small><strong>${pct.toFixed(0)}% dentro do SLA</strong></article>`).join('');
+
+  const cont={};dados.forEach(x=>{const c=x.categoriaProblema||'Não categorizado';cont[c]=(cont[c]||0)+1});
+  const itens=Object.entries(cont).sort((a,b)=>b[1]-a[1]),total=Math.max(1,dados.length);let acum=0;
+  $('#paretoProblemas').innerHTML=itens.length?`<div class="pareto-list">${itens.map(([nome,n])=>{acum+=n;const pa=n/total*100,pc=acum/total*100;return `<div class="pareto-row"><span>${esc(nome)}</span><div class="pareto-track"><i style="width:${pa}%"></i></div><b>${n}</b><small>${pa.toFixed(1)}% · acumulado ${pc.toFixed(1)}%</small></div>`}).join('')}</div>`:'<div class="empty-state">Sem dados para o Pareto.</div>';
+
+  const motivos={};abertos.forEach(x=>{const ultimo=x.retornos?.at(-1);const m=ultimo?.motivoParalisacao||ultimo?.motivo||'Sem motivo informado';motivos[m]=(motivos[m]||0)+1});
+  $('#motivosParalisacao').innerHTML=Object.entries(motivos).sort((a,b)=>b[1]-a[1]).map(([m,n])=>`<article><b>${n}</b><span>${esc(m)}</span></article>`).join('')||'<div class="empty-state">Nenhum atendimento aberto.</div>';
+
+  const mapa=new Map();dados.forEach(x=>{const k=`${x.bloco}|${x.apto}`;mapa.set(k,(mapa.get(k)||0)+1)});
+  const blocos=[...Array(20)].map((_,i)=>String(i+1));
+  $('#mapaCalor').innerHTML=blocos.map(bloco=>{const aps=[...mapa.entries()].filter(([k])=>k.startsWith(bloco+'|')).sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true}));return `<section class="heat-block"><h4>Bloco ${bloco}</h4><div>${aps.length?aps.map(([k,n])=>{const apt=k.split('|')[1];return `<button type="button" class="heat-cell h${Math.min(n,4)}" title="Bloco ${esc(bloco)}, apartamento ${esc(apt)}: ${n} ocorrência(s)" onclick="filtrarApartamento('${esc(bloco)}','${esc(apt)}')">${esc(apt)}<small>${n}</small></button>`}).join(''):'<span class="no-unit">Sem registros</span>'}</div></section>`}).join('');
 }
+function filtrarApartamento(bloco,apto){nav('solicitacoes');$('#busca').value=`${bloco} ${apto}`;render()}
+function atualizarOcorrenciasRelacionadas(){const bloco=$('#bloco').value,apto=$('#apto').value.trim(),select=$('#ocorrenciaAnterior');const lista=dados.filter(x=>String(x.bloco)===String(bloco)&&String(x.apto).toLowerCase()===apto.toLowerCase());select.innerHTML='<option value="">Selecione o protocolo relacionado</option>'+lista.map(x=>`<option value="${x.id}">${esc(x.protocolo)} · ${esc(x.status)} · ${data(x.criado)}</option>`).join('')}
+$('#tipoOcorrencia').addEventListener('change',e=>{const vincula=e.target.value!=='nova';$('#campoOcorrenciaAnterior').hidden=!vincula;$('#ocorrenciaAnterior').required=vincula;atualizarOcorrenciasRelacionadas()});
+$('#bloco').addEventListener('change',atualizarOcorrenciasRelacionadas);$('#apto').addEventListener('input',atualizarOcorrenciasRelacionadas);
