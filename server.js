@@ -61,11 +61,16 @@ async function prepararBanco(){
     prioridade VARCHAR(30) NOT NULL, problema TEXT NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'Pendente', criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE solicitacoes ADD COLUMN IF NOT EXISTS categoria_problema VARCHAR(100)`;
+  await sql`ALTER TABLE solicitacoes ADD COLUMN IF NOT EXISTS tipo_ocorrencia VARCHAR(30) NOT NULL DEFAULT 'nova'`;
+  await sql`ALTER TABLE solicitacoes ADD COLUMN IF NOT EXISTS ocorrencia_anterior_id TEXT`;
+  await sql`ALTER TABLE solicitacoes ADD COLUMN IF NOT EXISTS iniciado_em TIMESTAMPTZ`;
   await sql`CREATE TABLE IF NOT EXISTS retornos (
     id BIGSERIAL PRIMARY KEY, solicitacao_id TEXT NOT NULL REFERENCES solicitacoes(id) ON DELETE CASCADE,
     prestador VARCHAR(150) NOT NULL, resolvido BOOLEAN NOT NULL DEFAULT FALSE,
     motivo TEXT, observacao TEXT NOT NULL, complemento TEXT, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE retornos ADD COLUMN IF NOT EXISTS motivo_paralisacao VARCHAR(150)`;
   await sql`DELETE FROM sessoes WHERE expira_em<=NOW()`;
   const admin=await sql`SELECT id FROM usuarios WHERE perfil='admin' LIMIT 1`;
   if(!admin.length){
