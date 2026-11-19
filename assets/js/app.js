@@ -33,7 +33,28 @@ function baixarCSV(nome,linhas){const blob=new Blob(['\ufeff'+linhas.map(l=>l.ma
 window.exportarCSV=()=>{const lista=filtrados(),cab=['Protocolo','Cliente','Bloco','Apartamento','Fornecedor','Status','Problema','Observa\u00e7\u00e3o','Data de abertura'];baixarCSV(`atendimentos_${new Date().toISOString().slice(0,10)}.csv`,[cab,...lista.map(x=>{const r=x.retornos?.at(-1);return[x.protocolo,x.cliente,x.bloco,x.apto,x.fornecedorNome,x.status,x.problema,r?.observacao||'',new Date(x.criado).toLocaleString('pt-BR')]})]);toast(`${lista.length} registros exportados`)};
 window.exportarRankings=()=>{const apt=agrupar(dados,x=>`${x.cliente||'Cliente n\u00e3o informado'} \u00b7 Bloco ${x.bloco||'-'} \u00b7 Apto ${x.apto||'-'}`),prob=agrupar(dados,x=>String(x.problema||'').trim().replace(/\s+/g,' '));baixarCSV(`rankings_${new Date().toISOString().slice(0,10)}.csv`,[['RANKING DE APARTAMENTOS'],['Posi\u00e7\u00e3o','Apartamento','Ocorr\u00eancias','Pendentes','Resolvidos'],...apt.map((x,i)=>[i+1,x.rotulo,x.total,x.pendentes,x.resolvidos]),[],['PRINCIPAIS PROBLEMAS'],['Posi\u00e7\u00e3o','Problema','Ocorr\u00eancias'],...prob.map((x,i)=>[i+1,x.rotulo,x.total])])};
 window.imprimirRelatorio=()=>window.print();
-function render(){$('#total').textContent=dados.length;$('#pendentes').textContent=dados.filter(x=>x.status==='Pendente').length;$('#manutencao').textContent=dados.filter(x=>x.status==='Em manuten\u00e7\u00e3o').length;$('#resolvidos').textContent=dados.filter(x=>x.status==='Resolvido').length;$('#lista').innerHTML=tabela(filtrados());$('#hist').innerHTML=tabela(dados.filter(x=>x.status==='Resolvido'),true)}
+function dataMovimento(x){
+  const retornos=Array.isArray(x.retornos)?x.retornos:[];
+  const ultimo=retornos.at(-1)||{};
+  const valor=ultimo.criado||ultimo.data||ultimo.dataHora||ultimo.updatedAt||x.atualizado||x.updatedAt||x.criado||x.createdAt;
+  const d=new Date(valor);return Number.isNaN(d.getTime())?new Date():d
+}
+function diasSemMovimento(x){return Math.max(0,Math.floor((Date.now()-dataMovimento(x).getTime())/86400000))}
+function faixaSla(dias){return dias>=15?'critico':dias>=8?'atencao':'prazo'}
+function renderGerencial(){
+  const abertos=dados.filter(x=>x.status!=='Resolvido'&&x.status!=='Cancelado').map(x=>({...x,diasParado:diasSemMovimento(x)}));
+  const status=['Pendente','Em manuten\u00e7\u00e3o','Pendente de retorno','Resolvido'];
+  const cores=['#d97706','#2563eb','#ea580c','#16a34a'];
+  const totais=status.map(s=>dados.filter(x=>x.status===s).length),max=Math.max(1,...totais);
+  $('#graficoStatus').innerHTML=status.map((s,i)=>`<div class="chart-row"><span>${esc(s)}</span><div class="chart-track"><i style="width:${totais[i]/max*100}%;background:${cores[i]}"></i></div><b>${totais[i]}</b></div>`).join('');
+  const grupos=[['prazo','Dentro do prazo','0 a 7 dias'],['atencao','Aten\u00e7\u00e3o','8 a 14 dias'],['critico','Cr\u00edtico','15 dias ou mais']];
+  $('#farol').innerHTML=grupos.map(([c,t,p])=>{const n=abertos.filter(x=>faixaSla(x.diasParado)===c).length;return `<article class="traffic-item ${c}"><span class="traffic-dot"></span><div><b>${t}</b><small>${p} sem informa\u00e7\u00e3o</small></div><strong>${n}</strong></article>`}).join('');
+  const atencao=abertos.filter(x=>x.diasParado>=8).sort((a,b)=>b.diasParado-a.diasParado);
+  $('#totalAtencao').textContent=`${atencao.length} ${atencao.length===1?'pend\u00eancia':'pend\u00eancias'}`;
+  $('#listaAtencao').innerHTML=atencao.length?`<div class="attention-list">${atencao.map(x=>`<article class="attention-item ${faixaSla(x.diasParado)}"><div><b>Bloco ${esc(x.bloco)} \u00b7 Apto ${esc(x.apto)}</b><span>${esc(x.protocolo)} \u00b7 ${esc(x.status)}</span><small>${esc(x.problema)}</small></div><div class="days"><strong>${x.diasParado}</strong><span>dias sem atualiza\u00e7\u00e3o</span>${['admin','fornecedor'].includes(sessao.perfil)?`<button class="btn primary small" onclick="abrirRetorno('${x.id}')">Atualizar</button>`:''}</div></article>`).join('')}</div>`:'<div class="empty-state">Nenhum atendimento exige aten\u00e7\u00e3o no momento.</div>';
+  $('#ultimaAtualizacao').textContent=`Atualizado em ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date())}`
+}
+function render(){$('#total').textContent=dados.length;$('#pendentes').textContent=dados.filter(x=>x.status==='Pendente').length;$('#manutencao').textContent=dados.filter(x=>x.status==='Em manuten\u00e7\u00e3o').length;$('#resolvidos').textContent=dados.filter(x=>x.status==='Resolvido').length;$('#lista').innerHTML=tabela(filtrados());$('#hist').innerHTML=tabela(dados.filter(x=>x.status==='Resolvido'),true);renderGerencial()}
 $('#busca').oninput=$('#status').onchange=()=>$('#lista').innerHTML=tabela(filtrados());
 $('#solicitacaoForm').onsubmit=async e=>{e.preventDefault();try{await salvarSolicitacao({protocolo:`${new Date().getFullYear()}-${Date.now().toString().slice(-9)}`,bloco:$('#bloco').value.trim(),apto:$('#apto').value.trim(),prioridade:$('#prioridade').value,problema:$('#problema').value.trim()});e.target.reset();await atualizar();pagina('solicitacoes');toast('Solicita\u00e7\u00e3o cadastrada.')}catch(x){toast(x.message)}};
 window.iniciarAtendimento=async id=>{try{await iniciarSolicitacao(id);await atualizar();toast('Atendimento iniciado.')}catch(x){toast(x.message)}};
