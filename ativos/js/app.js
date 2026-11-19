@@ -33,7 +33,28 @@ function baixarCSV(nome,linhas){const blob=new Blob(['\ufeff'+linhas.map(l=>l.ma
 window.exportarCSV=()=>{const lista=filtrados(),cab=['Protocolo','Cliente','Bloco','Apartamento','Fornecedor','Status','Problema','Observa\u00e7\u00e3o','Data de abertura'];baixarCSV(`atendimentos_${new Date().toISOString().slice(0,10)}.csv`,[cab,...lista.map(x=>{const r=x.retornos?.at(-1);return[x.protocolo,x.cliente,x.bloco,x.apto,x.fornecedorNome,x.status,x.problema,r?.observacao||'',new Date(x.criado).toLocaleString('pt-BR')]})]);toast(`${lista.length} registros exportados`)};
 window.exportarRankings=()=>{const apt=agrupar(dados,x=>`${x.cliente||'Cliente n\u00e3o informado'} \u00b7 Bloco ${x.bloco||'-'} \u00b7 Apto ${x.apto||'-'}`),prob=agrupar(dados,x=>String(x.problema||'').trim().replace(/\s+/g,' '));baixarCSV(`rankings_${new Date().toISOString().slice(0,10)}.csv`,[['RANKING DE APARTAMENTOS'],['Posi\u00e7\u00e3o','Apartamento','Ocorr\u00eancias','Pendentes','Resolvidos'],...apt.map((x,i)=>[i+1,x.rotulo,x.total,x.pendentes,x.resolvidos]),[],['PRINCIPAIS PROBLEMAS'],['Posi\u00e7\u00e3o','Problema','Ocorr\u00eancias'],...prob.map((x,i)=>[i+1,x.rotulo,x.total])])};
 window.imprimirRelatorio=()=>window.print();
-function render(){$('#total').textContent=dados.length;$('#pendentes').textContent=dados.filter(x=>x.status==='Pendente').length;$('#manutencao').textContent=dados.filter(x=>x.status==='Em manuten\u00e7\u00e3o').length;$('#resolvidos').textContent=dados.filter(x=>x.status==='Resolvido').length;$('#lista').innerHTML=tabela(filtrados());$('#hist').innerHTML=tabela(dados.filter(x=>x.status==='Resolvido'),true)}
+function ultimaMovimentacao(x){
+  const retornos=Array.isArray(x.retornos)?x.retornos:[];
+  const ultimo=retornos.length?retornos[retornos.length-1]:null;
+  const valor=ultimo?.data||x.criado;
+  const d=new Date(valor);return Number.isNaN(d.getTime())?new Date():d
+}
+function diasSemInformacao(x){return Math.max(0,Math.floor((Date.now()-ultimaMovimentacao(x).getTime())/86400000))}
+function faixaFarol(dias){return dias>=30?'escalonado':dias>=15?'critico':dias>=8?'atencao':'prazo'}
+function renderGerencial(){
+  const abertos=dados.filter(x=>!['Resolvido','Cancelado'].includes(x.status)).map(x=>({...x,diasParado:diasSemInformacao(x)}));
+  const status=['Pendente','Em manutenção','Pendente de retorno','Resolvido'];
+  const cores=['#d59b09','#16897f','#e36b18','#23944b'];
+  const totais=status.map(s=>dados.filter(x=>x.status===s).length),max=Math.max(1,...totais);
+  $('#graficoStatus').innerHTML=status.map((s,i)=>`<div class="chart-row"><span>${esc(s)}</span><div class="chart-track"><i style="width:${totais[i]/max*100}%;background:${cores[i]}"></i></div><b>${totais[i]}</b></div>`).join('');
+  const grupos=[['prazo','Dentro do prazo','0 a 7 dias'],['atencao','Atenção','8 a 14 dias'],['critico','Crítico','15 a 29 dias'],['escalonado','Escalonar','30 dias ou mais']];
+  $('#farol').innerHTML=grupos.map(([c,t,p])=>`<article class="traffic-item ${c}"><span class="traffic-dot"></span><div><b>${t}</b><small>${p} sem informação</small></div><strong>${abertos.filter(x=>faixaFarol(x.diasParado)===c).length}</strong></article>`).join('');
+  const atencao=abertos.filter(x=>x.diasParado>=8).sort((a,b)=>b.diasParado-a.diasParado);
+  $('#totalAtencao').textContent=`${atencao.length} ${atencao.length===1?'pendência':'pendências'}`;
+  $('#listaAtencao').innerHTML=atencao.length?`<div class="attention-list">${atencao.map(x=>`<article class="attention-item ${faixaFarol(x.diasParado)}"><div><b>Bloco ${esc(x.bloco)} · Apto ${esc(x.apto)}</b><span>${esc(x.protocolo)} · ${esc(x.status)}</span><small>${esc(x.problema)}</small><small>Última informação: ${data(ultimaMovimentacao(x))}</small></div><div class="days"><strong>${x.diasParado}</strong><span>dias sem informação</span>${['admin','fornecedor'].includes(sessao.perfil)?`<button class="btn primary small" onclick="abrirRetorno('${x.id}')">Atualizar</button>`:''}</div></article>`).join('')}</div>`:'<div class="empty-state">Nenhum atendimento exige atenção no momento.</div>';
+  $('#ultimaAtualizacao').textContent=`Atualizado em ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date())}`
+}
+function render(){$('#total').textContent=dados.length;$('#pendentes').textContent=dados.filter(x=>x.status==='Pendente').length;$('#manutencao').textContent=dados.filter(x=>x.status==='Em manutenção').length;$('#retornos').textContent=dados.filter(x=>x.status==='Pendente de retorno').length;$('#resolvidos').textContent=dados.filter(x=>x.status==='Resolvido').length;$('#lista').innerHTML=tabela(filtrados());$('#hist').innerHTML=tabela(dados.filter(x=>x.status==='Resolvido'),true);renderGerencial()}
 $('#busca').oninput=$('#status').onchange=()=>$('#lista').innerHTML=tabela(filtrados());
 $('#solicitacaoForm').onsubmit=async e=>{e.preventDefault();try{await salvarSolicitacao({protocolo:`${new Date().getFullYear()}-${Date.now().toString().slice(-9)}`,bloco:$('#bloco').value.trim(),apto:$('#apto').value.trim(),prioridade:$('#prioridade').value,problema:$('#problema').value.trim()});e.target.reset();await atualizar();pagina('solicitacoes');toast('Solicita\u00e7\u00e3o cadastrada.')}catch(x){toast(x.message)}};
 window.iniciarAtendimento=async id=>{try{await iniciarSolicitacao(id);await atualizar();toast('Atendimento iniciado.')}catch(x){toast(x.message)}};
