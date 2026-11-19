@@ -9,64 +9,38 @@
 .badge.status-cancelado{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
 .badge.status-outro{background:#e5e7eb;color:#374151;border:1px solid #cbd5e1}
 
-/* Identidade visual Royal Garden */
+/* Identidade visual do Residencial Royal Garden */
+.login-card h1,
+header h1{
+  font-family:"Brush Script MT","Segoe Script","Lucida Handwriting",cursive;
+  font-weight:700;
+  line-height:.95;
+  letter-spacing:.2px;
+}
+.login-card h1{font-size:clamp(34px,8vw,48px);text-align:center}
+header h1{font-size:clamp(30px,4vw,42px)}
+
+
+/* Painel gerencial de atendimentos */
+.status-chart{display:grid;gap:12px;margin-top:16px}.chart-row{display:grid;grid-template-columns:minmax(130px,1fr) 3fr 35px;gap:10px;align-items:center}.chart-track{height:12px;background:#e5edf3;border-radius:999px;overflow:hidden}.chart-track i{display:block;height:100%;border-radius:999px}.traffic-list{display:grid;gap:10px;margin-top:16px}.traffic-item{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:12px;border:1px solid var(--borda);border-radius:12px}.traffic-item small,.attention-item span,.attention-item small{display:block;color:#5f6f7b;margin-top:3px}.traffic-dot{width:16px;height:16px;border-radius:50%}.traffic-item.prazo .traffic-dot{background:#16a34a}.traffic-item.atencao .traffic-dot{background:#eab308}.traffic-item.critico .traffic-dot{background:#dc2626}.traffic-item strong{font-size:26px}.attention-list{display:grid;gap:10px}.attention-item{display:flex;justify-content:space-between;gap:16px;align-items:center;border-left:6px solid #eab308;background:#fff;padding:14px;border-radius:10px;box-shadow:0 1px 5px #13233014}.attention-item.critico{border-left-color:#dc2626}.days{text-align:right;min-width:145px}.days strong{font-size:30px;display:block;color:#b42318}.days .btn{margin-top:8px}.attention-count{background:#fff3cd;color:#7a5200;padding:7px 11px;border-radius:999px;font-weight:700}.panel-heading{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.panel-heading h3,.panel-heading p{margin:0}.dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.empty-state{padding:20px;text-align:center;color:#5f6f7b;background:#f7fafc;border-radius:10px}@media(max-width:800px){.dashboard-grid{grid-template-columns:1fr}.chart-row{grid-template-columns:110px 1fr 30px}.attention-item{align-items:flex-start;flex-direction:column}.days{text-align:left}}
+
+
+/* Acompanhamento de apartamentos reincidentes */
+.recurrence-panel{margin-top:14px}.recurrence-count{background:#e8eefc;color:#24458f;padding:7px 11px;border-radius:999px;font-weight:700}.recurrence-list{display:grid;gap:10px}.recurrence-item{border:1px solid var(--borda);border-left:6px solid #64748b;border-radius:10px;background:#fff;overflow:hidden}.recurrence-item.recente{border-left-color:#7c3aed}.recurrence-item summary{cursor:pointer;display:flex;justify-content:space-between;gap:14px;align-items:center;padding:14px}.recurrence-item summary span{display:block;color:#5f6f7b;margin-top:4px}.recurrence-badge{background:#f1edff;color:#5b21b6!important;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:700;text-align:center}.recurrence-detail{border-top:1px solid var(--borda);padding:14px;background:#f8fafc}.recurrence-detail h4{margin:12px 0 6px}.recurrence-detail p{margin:6px 0}.recurrence-detail article{padding:9px 0;border-bottom:1px solid #dbe4ea}.recurrence-question{display:grid;gap:4px;margin:12px 0;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px}@media(max-width:800px){.recurrence-item summary{align-items:flex-start;flex-direction:column}.recurrence-badge{border-radius:8px}}
+
+
+/* Indicadores gerenciais avancados */
+.analytics-panel{margin-top:14px}.full-dashboard{grid-column:1/-1}.sla-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.sla-card{display:grid;gap:6px;padding:15px;border-radius:12px;border:1px solid var(--borda);border-top:5px solid #16a34a}.sla-card.atencao{border-top-color:#eab308}.sla-card.critico{border-top-color:#dc2626}.sla-card b{font-size:25px}.sla-card strong{color:var(--azul)}.pareto-list{display:grid;gap:10px}.pareto-row{display:grid;grid-template-columns:minmax(130px,1fr) 3fr 35px minmax(160px,auto);gap:10px;align-items:center}.pareto-track{height:13px;background:#e5edf3;border-radius:99px;overflow:hidden}.pareto-track i{display:block;height:100%;background:#07558e}.reason-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.reason-grid article{background:#f7fafc;border:1px solid var(--borda);padding:12px;border-radius:10px}.reason-grid b{font-size:25px;display:block}.heat-legend{display:flex;gap:8px;margin:10px 0}.heat-legend span,.heat-cell{padding:6px 9px;border-radius:7px}.heatmap{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.heat-block{border:1px solid var(--borda);border-radius:10px;padding:10px}.heat-block h4{margin:0 0 8px}.heat-block>div{display:flex;flex-wrap:wrap;gap:6px}.heat-cell{border:0;cursor:pointer;display:grid;min-width:48px}.heat-cell small{font-size:10px}.h0{background:#e5e7eb}.h1{background:#bbf7d0}.h2{background:#fef08a}.h3{background:#fdba74}.h4{background:#f87171;color:#651515}.no-unit{font-size:12px;color:#6b7280}@media(max-width:800px){.sla-grid{grid-template-columns:1fr}.pareto-row{grid-template-columns:110px 1fr 30px}.pareto-row small{grid-column:1/-1}.full-dashboard{grid-column:auto}}
+
+/* Identidade visual e cabecalho atuais */
 :root{--azul:#08746e;--fundo:#f2f7f5;--borda:#c8ddd8;--vermelho:#b42318}
 .login{background:linear-gradient(135deg,#034c48,#0b8279)}
-header{background:linear-gradient(135deg,#045c57,#08746e)}
-.primary{background:#08746e;color:#fff}.primary:hover{background:#065f5a}
-.secondary{background:#dcefeb;color:#065f5a}
+header{background:linear-gradient(135deg,#045c57,#08746e);position:relative}
+.primary{background:#08746e;color:#fff}.primary:hover{background:#065f5a}.secondary{background:#dcefeb;color:#065f5a}
 .brand-logo{display:block;width:min(330px,74vw);height:auto;object-fit:contain;border-radius:12px}
 .login-card .brand-logo{margin:0 auto 8px;width:min(310px,82vw);box-shadow:0 8px 24px #043f3a22}
-header .brand-logo{width:min(250px,62vw);max-height:105px;background:#f7f4e8;padding:5px;border:2px solid #d7d1bd;box-shadow:0 5px 16px #003f3a45}
-@media(max-width:600px){header .brand-logo{width:min(220px,75vw)}.login-card .brand-logo{width:min(280px,80vw)}}
-header > div:first-child {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-header .brand-logo {
-  margin: 0 auto;
-  display: block;
-}
-/* Mantém o usuário e o botão Sair no lado direito */
-header {
-  position: relative;
-}
-
-header .usuario {
-  position: absolute;
-  top: 20px;
-  right: 3%;
-  display: grid;
-  grid-template-columns: auto auto;
-  align-items: center;
-  column-gap: 12px;
-  text-align: left;
-}
-
-header .usuario .btn {
-  grid-column: 2;
-  grid-row: 1 / 3;
-}
-
-/* Ajuste para celular */
-@media (max-width: 800px) {
-  header .usuario {
-    position: static;
-    width: 100%;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    margin-top: 12px;
-  }
-}
-
-
-/* Painel gerencial atualizado */
-.page-title,.panel-heading{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.page-title h2,.page-title p,.panel-heading h3,.panel-heading p{margin:0}.updated{font-size:12px;color:#58736f}.dashboard-cards{grid-template-columns:repeat(5,1fr)}.overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}.status-chart,.traffic-list{display:grid;gap:11px;margin-top:14px}.chart-row{display:grid;grid-template-columns:minmax(135px,1fr) 3fr 35px;gap:10px;align-items:center}.chart-track{height:13px;background:#dceae7;border-radius:999px;overflow:hidden}.chart-track i{display:block;height:100%;border-radius:999px}.traffic-item{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:12px;border:1px solid var(--borda);border-radius:11px}.traffic-item small,.attention-item span,.attention-item small{display:block;color:#58736f;margin-top:3px}.traffic-dot{width:16px;height:16px;border-radius:50%}.traffic-item.prazo .traffic-dot{background:#23944b}.traffic-item.atencao .traffic-dot{background:#e5b20c}.traffic-item.critico .traffic-dot{background:#dc3b31}.traffic-item.escalonado .traffic-dot{background:#791f1f}.traffic-item strong{font-size:26px}.attention-panel{margin-top:14px}.attention-count{background:#fff0bf;color:#775500;padding:7px 11px;border-radius:999px;font-weight:700}.attention-list{display:grid;gap:10px}.attention-item{display:flex;justify-content:space-between;gap:16px;align-items:center;border-left:6px solid #e5b20c;background:#fff;padding:14px;border-radius:10px;box-shadow:0 1px 5px #13233014}.attention-item.critico{border-left-color:#dc3b31}.attention-item.escalonado{border-left-color:#791f1f;background:#fff7f7}.days{text-align:right;min-width:150px}.days strong{font-size:30px;display:block;color:#b42318}.days .btn{margin-top:8px}.empty-state{padding:20px;text-align:center;color:#58736f;background:#f4f8f7;border-radius:10px}.sla-note{font-size:12px;color:#58736f;margin-bottom:0}@media(max-width:1000px){.dashboard-cards{grid-template-columns:repeat(3,1fr)}}@media(max-width:800px){.overview-grid{grid-template-columns:1fr}.dashboard-cards{grid-template-columns:1fr 1fr}.chart-row{grid-template-columns:110px 1fr 30px}.attention-item{align-items:flex-start;flex-direction:column}.days{text-align:left}.page-title,.panel-heading{align-items:flex-start}}@media(max-width:480px){.dashboard-cards{grid-template-columns:1fr}}
-
-
-/* Apartamentos reincidentes */
-.recurrence-panel{margin-top:14px}.recurrence-count{background:#dcefeb;color:#065f5a;padding:7px 11px;border-radius:999px;font-weight:700}.recurrence-list{display:grid;gap:10px}.recurrence-item{border:1px solid var(--borda);border-left:6px solid #64748b;border-radius:10px;background:#fff;overflow:hidden}.recurrence-item.recente{border-left-color:#7c3aed}.recurrence-item summary{cursor:pointer;display:flex;justify-content:space-between;gap:14px;align-items:center;padding:14px}.recurrence-item summary span{display:block;color:#58736f;margin-top:4px}.recurrence-badge{background:#f1edff;color:#5b21b6!important;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:700;text-align:center}.recurrence-detail{border-top:1px solid var(--borda);padding:14px;background:#f8faf9}.recurrence-detail h4{margin:12px 0 6px}.recurrence-detail p{margin:6px 0}.recurrence-detail article{padding:9px 0;border-bottom:1px solid #dbe4e1}.recurrence-question{display:grid;gap:4px;margin:12px 0;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px}@media(max-width:800px){.recurrence-item summary{align-items:flex-start;flex-direction:column}.recurrence-badge{border-radius:8px}}
+header>div:first-child{width:100%;display:flex;flex-direction:column;align-items:center;text-align:center}
+header .brand-logo{margin:0 auto;display:block;width:min(250px,62vw);max-height:105px;object-fit:contain}
+header .usuario{position:absolute;top:20px;right:3%;display:grid;grid-template-columns:auto auto;align-items:center;column-gap:12px;text-align:left}
+header .usuario .btn{grid-column:2;grid-row:1/3}
+@media(max-width:800px){header .usuario{position:static;width:100%;display:grid;grid-template-columns:1fr auto;margin-top:12px}}
